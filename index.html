@@ -7,7 +7,15 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <h1>Keos Lunara Json Generator</h1>
+  <div class="header-container">
+    <button id="advancedMode" class="toggle-button">Basic Mode</button>
+    <h1>Keos Lunara Json Generator</h1>
+  </div>
+
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Search items..." />
+    <div id="searchSuggestions" class="search-suggestions"></div>
+  </div>
 
   <div class="form-section">
     <label for="itemSelect">Item:</label>
@@ -33,10 +41,13 @@
     <button id="addItem">Add Item</button>
   </div>
 
-  <h2>Added Items</h2>
-  <ul id="itemList"></ul>
-
-  <button id="downloadJson">Download JSON</button>
+  <div class="item-section">
+    <div class="item-header">
+      <h2>Added Items</h2>
+      <button id="downloadJson">Download JSON</button>
+    </div>
+    <ul id="itemList"></ul>
+  </div>
 
   <script src="script.js"></script>
 </body>
