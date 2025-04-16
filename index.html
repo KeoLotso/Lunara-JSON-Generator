@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custom Inventory Generator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>Keos Lunara Json Generator</h1>
+
+  <div class="form-section">
+    <label for="itemSelect">Item:</label>
+    <select id="itemSelect"></select>
+
+    <div class="input-group">
+      <label>Hue: <input type="number" id="hue" /></label>
+      <label><input type="checkbox" id="randomHue" /> Random</label>
+    </div>
+
+    <div class="input-group">
+      <label>Saturation: <input type="number" id="saturation" /></label>
+      <label><input type="checkbox" id="randomSaturation" /> Random</label>
+    </div>
+
+    <div class="input-group">
+      <label>Size (Scale Modifier): <input type="number" id="size" /></label>
+      <label><input type="checkbox" id="randomSize" /> Random</label>
+    </div>
+
+    <label>Count: <input type="number" id="count" value="1" min="1" /></label>
+
+    <button id="addItem">Add Item</button>
+  </div>
+
+  <h2>Added Items</h2>
+  <ul id="itemList"></ul>
+
+  <button id="downloadJson">Download JSON</button>
+
+  <script src="script.js"></script>
+</body>
+</html>
