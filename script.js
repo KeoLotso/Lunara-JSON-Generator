@@ -1,13 +1,15 @@
-let items = [];
-let filesData = [];
+let allItems = [];
+let inventory = {
+  items: []
+};
 let advancedMode = false;
-let itemGroups = {};
+let selectedContainerId = 'root';
 
 document.addEventListener('DOMContentLoaded', () => {
   fetch('files.json')
     .then(res => res.json())
     .then(data => {
-      filesData = data;
+      allItems = data;
       const select = document.getElementById("itemSelect");
       data.forEach(item => {
         const option = document.createElement("option");
@@ -17,10 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   
-  document.getElementById("addItem").addEventListener("click", addItemToList);
+  document.getElementById("addItem").addEventListener("click", addItemToInventory);
   document.getElementById("downloadJson").addEventListener("click", downloadJson);
   document.getElementById("advancedMode").addEventListener("click", toggleAdvancedMode);
   document.getElementById("searchInput").addEventListener("input", handleSearch);
+  
+  document.getElementById("containerSelect").addEventListener("change", (e) => {
+    selectedContainerId = e.target.value;
+  });
 });
 
 function getRandomInt(min, max) {
@@ -46,18 +52,14 @@ function toggleAdvancedMode() {
       el.classList.remove('visible');
     }
   });
-  
-  updateItemDisplay();
 }
 
 function handleSearch() {
   const searchText = document.getElementById("searchInput").value.toLowerCase();
   const suggestionsContainer = document.getElementById("searchSuggestions");
   
-  searchItems(searchText);
-  
   if (searchText.length > 0) {
-    const matchingItems = filesData
+    const matchingItems = allItems
       .filter(item => 
         item.name.toLowerCase().includes(searchText) || 
         item.id.toLowerCase().includes(searchText))
@@ -73,7 +75,7 @@ function handleSearch() {
         suggestionItem.className = 'suggestion-item';
         suggestionItem.innerHTML = `
           <div class="item-name">${item.name}</div>
-          <div class="item-id">${item.id}</div>
+          <div class="item-id ${advancedMode ? 'visible' : ''}">${item.id}</div>
         `;
         
         suggestionItem.addEventListener('click', () => {
@@ -90,195 +92,375 @@ function handleSearch() {
   } else {
     suggestionsContainer.classList.remove('active');
   }
+  
+  filterInventoryTree(searchText);
 }
 
-function addItemToList() {
+function filterInventoryTree(searchText) {
+  const treeItems = document.querySelectorAll('#inventoryTree li');
+  
+  treeItems.forEach(item => {
+    const itemName = item.getAttribute('data-name').toLowerCase();
+    const itemId = item.getAttribute('data-item-id').toLowerCase();
+    
+    if (!searchText || itemName.includes(searchText) || itemId.includes(searchText)) {
+      item.classList.remove('hidden');
+      
+      let parent = item.parentElement;
+      while (parent && parent.classList.contains('child-items')) {
+        parent.classList.add('expanded');
+        parent = parent.parentElement.parentElement;
+      }
+    } else {
+      const hasVisibleChildren = Array.from(item.querySelectorAll('li'))
+        .some(child => !child.classList.contains('hidden'));
+      
+      if (!hasVisibleChildren) {
+        item.classList.add('hidden');
+      } else {
+        item.classList.remove('hidden');
+      }
+    }
+  });
+}
+
+function addItemToInventory() {
   const itemID = document.getElementById("itemSelect").value;
   const count = parseInt(document.getElementById("count").value, 10) || 1;
-
+  
+  const containerID = selectedContainerId;
+  
   const randomHue = document.getElementById("randomHue").checked;
   const randomSaturation = document.getElementById("randomSaturation").checked;
   const randomSize = document.getElementById("randomSize").checked;
-
-  const itemName = filesData.find(f => f.id === itemID)?.name || itemID;
   
   const hueVal = parseInt(document.getElementById("hue").value) || 0;
   const satVal = parseInt(document.getElementById("saturation").value) || 0;
   const sizeVal = parseInt(document.getElementById("size").value) || 0;
-
-  const groupKey = `${itemID}-h${randomHue ? 'R' : hueVal}-s${randomSaturation ? 'R' : satVal}-sz${randomSize ? 'R' : sizeVal}`;
-
-  let representativeItem = {
+  
+  const newItem = {
     itemID,
-    colorHue: hueVal,
-    colorSaturation: satVal,
-    scaleModifier: sizeVal,
-    groupKey,
-    isRandom: randomHue || randomSaturation || randomSize
+    colorHue: randomHue ? getRandomInt(0, 255) : hueVal,
+    colorSaturation: randomSaturation ? getRandomInt(0, 100) : satVal,
+    scaleModifier: randomSize ? getRandomInt(-100, 100) : sizeVal,
+    count: count
   };
-
-  for (let i = 0; i < count; i++) {
-    const hue = randomHue ? getRandomInt(0, 255) : hueVal;
-    const saturation = randomSaturation ? getRandomInt(0, 100) : satVal;
-    const size = randomSize ? getRandomInt(-100, 100) : sizeVal;
-
-    const newItem = {
-      itemID,
-      colorHue: hue,
-      colorSaturation: saturation,
-      scaleModifier: size,
-      groupKey
-    };
-
-    items.push(newItem);
+  
+  if (containerID === 'root') {
+    const existingItem = findExistingItem(inventory.items, newItem);
+    if (existingItem) {
+      existingItem.count = (existingItem.count || 1) + count;
+    } else {
+      inventory.items.push(newItem);
+    }
+  } else {
+    addToContainer(inventory.items, containerID, newItem);
   }
   
-  if (!itemGroups[groupKey]) {
-    itemGroups[groupKey] = {
-      count: 0,
-      item: representativeItem
-    };
-  }
-  itemGroups[groupKey].count += count;
-  
-  updateItemDisplay();
+  updateInventoryTree();
 }
 
-function updateItemDisplay() {
-  const itemList = document.getElementById("itemList");
-  itemList.innerHTML = '';
-  
-  for (const groupKey in itemGroups) {
-    if (itemGroups[groupKey].count > 0) {
-      const groupData = itemGroups[groupKey];
-      const item = groupData.item;
-      const itemName = filesData.find(f => f.id === item.itemID)?.name || item.itemID;
-      addItemElement(item, itemName, groupData.count);
+function findExistingItem(items, newItem) {
+  return items.find(item => 
+    item.itemID === newItem.itemID &&
+    item.colorHue === newItem.colorHue &&
+    item.colorSaturation === newItem.colorSaturation &&
+    item.scaleModifier === newItem.scaleModifier
+  );
+}
+
+function addToContainer(items, containerID, newItem) {
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].itemID === containerID) {
+      if (!items[i].children) {
+        items[i].children = [];
+      }
+      
+      const existingItem = findExistingItem(items[i].children, newItem);
+      if (existingItem) {
+        existingItem.count = (existingItem.count || 1) + newItem.count;
+      } else {
+        items[i].children.push(newItem);
+      }
+      return true;
+    }
+    
+    if (items[i].children && items[i].children.length > 0) {
+      if (addToContainer(items[i].children, containerID, newItem)) {
+        return true;
+      }
     }
   }
+  return false;
+}
+
+function isContainer(itemData, itemID) {
+  if (!itemData) return false;
   
-  const searchText = document.getElementById("searchInput").value.toLowerCase();
-  if (searchText.length > 0) {
-    searchItems(searchText);
+  return (
+    itemData.category === "Bags" || 
+    itemID.toLowerCase().includes("backpack") ||
+    itemID.toLowerCase().includes("crossbow") ||
+    itemData.name.toLowerCase().includes("crossbow")
+  );
+}
+
+function updateInventoryTree() {
+  const inventoryTree = document.getElementById("inventoryTree");
+  inventoryTree.innerHTML = '';
+  
+  updateContainerSelect();
+  
+  inventory.items.forEach(item => {
+    renderInventoryItem(item, inventoryTree);
+  });
+}
+
+function updateContainerSelect() {
+  const containerSelect = document.getElementById("containerSelect");
+  containerSelect.innerHTML = '<option value="root">Root (No Container)</option>';
+  
+  const addContainers = (items, path = "") => {
+    items.forEach(item => {
+      const itemData = allItems.find(i => i.id === item.itemID);
+      
+      if (isContainer(itemData, item.itemID)) {
+        const name = itemData ? itemData.name : item.itemID;
+        const pathDisplay = path ? `${path} > ${name}` : name;
+        
+        const option = document.createElement("option");
+        option.value = item.itemID;
+        option.textContent = pathDisplay;
+        containerSelect.appendChild(option);
+      }
+      
+      if (item.children && item.children.length > 0) {
+        const itemName = itemData ? itemData.name : item.itemID;
+        const newPath = path ? `${path} > ${itemName}` : itemName;
+        addContainers(item.children, newPath);
+      }
+    });
+  };
+  
+  addContainers(inventory.items);
+  
+  if (selectedContainerId) {
+    const exists = Array.from(containerSelect.options).some(option => option.value === selectedContainerId);
+    if (exists) {
+      containerSelect.value = selectedContainerId;
+    } else {
+      selectedContainerId = 'root';
+      containerSelect.value = 'root';
+    }
   }
 }
 
-function addItemElement(item, itemName, count) {
-  const itemList = document.getElementById("itemList");
+function renderInventoryItem(item, parentElement, level = 0) {
+  const itemData = allItems.find(i => i.id === item.itemID);
+  const itemName = itemData ? itemData.name : item.itemID;
+  
   const li = document.createElement("li");
+  li.dataset.itemId = item.itemID;
+  li.dataset.name = itemName;
   
-  if (count > 1) {
-    li.classList.add('group-item');
+  const isContainerItem = isContainer(itemData, item.itemID);
+  const hasChildren = item.children && item.children.length > 0;
+  
+  const treeItem = document.createElement("div");
+  treeItem.className = `tree-item ${isContainerItem ? 'container' : ''}`;
+  
+  const treeItemInfo = document.createElement("div");
+  treeItemInfo.className = "tree-item-info";
+  
+  if (isContainerItem || hasChildren) {
+    const toggle = document.createElement("span");
+    toggle.className = "tree-toggle";
+    toggle.textContent = "►";
+    toggle.addEventListener("click", () => {
+      const childContainer = li.querySelector('.child-items');
+      if (childContainer.classList.contains('expanded')) {
+        childContainer.classList.remove('expanded');
+        toggle.textContent = "►";
+      } else {
+        childContainer.classList.add('expanded');
+        toggle.textContent = "▼";
+      }
+    });
+    treeItemInfo.appendChild(toggle);
   }
   
-  const contentDiv = document.createElement("div");
-  contentDiv.className = "item-content";
+  const itemContent = document.createElement("div");
+  itemContent.className = "tree-item-content";
   
-  const itemText = document.createElement("div");
+  const countDisplay = item.count && item.count > 1 ? ` (x${item.count})` : '';
   
-  if (item.isRandom) {
-    itemText.textContent = `${itemName} (Random Properties)`;
-  } else {
-    itemText.textContent = `${itemName} (Hue: ${item.colorHue}, Sat: ${item.colorSaturation}, Size: ${item.scaleModifier})`;
+  itemContent.innerHTML = `
+    <span>${itemName}${countDisplay}</span>
+    <span class="item-id ${advancedMode ? 'visible' : ''}">(${item.itemID})</span>
+    ${hasChildren ? `<span class="item-count">${item.children.length} items</span>` : ''}
+  `;
+  
+  if (item.colorHue !== undefined || item.colorSaturation !== undefined || item.scaleModifier !== undefined) {
+    const propsTable = document.createElement("table");
+    propsTable.className = "properties-table";
+    propsTable.innerHTML = `
+      <tr>
+        <td>Hue:</td>
+        <td>${item.colorHue !== undefined ? item.colorHue : 'default'}</td>
+        <td>Saturation:</td>
+        <td>${item.colorSaturation !== undefined ? item.colorSaturation : 'default'}</td>
+        <td>Size:</td>
+        <td>${item.scaleModifier !== undefined ? item.scaleModifier : 'default'}</td>
+      </tr>
+    `;
+    itemContent.appendChild(propsTable);
   }
   
-  if (count > 1) {
-    const countSpan = document.createElement("span");
-    countSpan.className = "item-count";
-    countSpan.textContent = `Count: ${count}`;
-    itemText.appendChild(countSpan);
+  treeItemInfo.appendChild(itemContent);
+  treeItem.appendChild(treeItemInfo);
+  
+  const actionDiv = document.createElement("div");
+  actionDiv.className = "item-actions";
+  
+  if (level > 0) {
+    const moveUpBtn = document.createElement("button");
+    moveUpBtn.textContent = "Move Up";
+    moveUpBtn.addEventListener("click", () => {
+      moveItemUp(item, level);
+    });
+    actionDiv.appendChild(moveUpBtn);
   }
-  
-  contentDiv.appendChild(itemText);
-  
-  const itemIdDiv = document.createElement("div");
-  itemIdDiv.className = "item-id" + (advancedMode ? " visible" : "");
-  itemIdDiv.textContent = `(${item.itemID})`;
-  contentDiv.appendChild(itemIdDiv);
-  
-  li.appendChild(contentDiv);
-  
-  const actionsDiv = document.createElement("div");
-  actionsDiv.className = "item-actions";
   
   const deleteBtn = document.createElement("button");
   deleteBtn.textContent = "Delete";
   deleteBtn.addEventListener("click", () => {
-    deleteItem(item, 1);
+    deleteItem(item, level);
   });
-  actionsDiv.appendChild(deleteBtn);
+  actionDiv.appendChild(deleteBtn);
   
-  if (count > 1) {
-    const deleteAllBtn = document.createElement("button");
-    deleteAllBtn.className = "delete-all";
-    deleteAllBtn.textContent = "Delete All";
-    deleteAllBtn.addEventListener("click", () => {
-      deleteItem(item, count);
-    });
-    actionsDiv.appendChild(deleteAllBtn);
+  treeItem.appendChild(actionDiv);
+  li.appendChild(treeItem);
+  
+  if (isContainerItem || hasChildren) {
+    const childContainer = document.createElement("ul");
+    childContainer.className = "child-items";
+    li.appendChild(childContainer);
+    
+    if (item.children && item.children.length > 0) {
+      item.children.forEach(child => {
+        renderInventoryItem(child, childContainer, level + 1);
+      });
+    }
   }
   
-  li.appendChild(actionsDiv);
-  
-  li.dataset.itemId = item.itemID.toLowerCase();
-  li.dataset.itemName = itemName.toLowerCase();
-  li.dataset.groupKey = item.groupKey;
-  
-  itemList.appendChild(li);
+  parentElement.appendChild(li);
 }
 
-function deleteItem(item, count) {
-  if (item.groupKey && itemGroups[item.groupKey]) {
-    if (count >= itemGroups[item.groupKey].count) {
-      items = items.filter(i => i.groupKey !== item.groupKey);
-      delete itemGroups[item.groupKey];
-    } else {
-      itemGroups[item.groupKey].count -= count;
+function moveItemUp(item, level) {
+  const findItemAndParent = (items, targetItem, parentArray = null) => {
+    for (let i = 0; i < items.length; i++) {
+      if (items[i] === targetItem) {
+        return { item: items[i], parent: items, index: i, parentArray };
+      }
       
-      let removed = 0;
-      for (let i = items.length - 1; i >= 0 && removed < count; i--) {
-        if (items[i].groupKey === item.groupKey) {
-          items.splice(i, 1);
-          removed++;
+      if (items[i].children && items[i].children.length > 0) {
+        const result = findItemAndParent(items[i].children, targetItem, items[i]);
+        if (result) return result;
+      }
+    }
+    return null;
+  };
+  
+  const itemInfo = findItemAndParent(inventory.items, item);
+  
+  if (itemInfo && itemInfo.parentArray) {
+    itemInfo.parent.splice(itemInfo.index, 1);
+    
+    const findParentArray = (items, targetArray) => {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].children === targetArray) {
+          return { parent: items, index: i };
+        }
+        
+        if (items[i].children && items[i].children.length > 0) {
+          const result = findParentArray(items[i].children, targetArray);
+          if (result) return result;
+        }
+      }
+      return null;
+    };
+    
+    const grandparentInfo = findParentArray(inventory.items, itemInfo.parent);
+    
+    if (grandparentInfo) {
+      const existingItem = findExistingItem(grandparentInfo.parent, item);
+      if (existingItem) {
+        existingItem.count = (existingItem.count || 1) + (item.count || 1);
+      } else {
+        grandparentInfo.parent.push(item);
+      }
+    } else {
+      const existingItem = findExistingItem(inventory.items, item);
+      if (existingItem) {
+        existingItem.count = (existingItem.count || 1) + (item.count || 1);
+      } else {
+        inventory.items.push(item);
+      }
+    }
+    
+    updateInventoryTree();
+  }
+}
+
+function deleteItem(targetItem, level = 0) {
+  const removeItem = (items, item) => {
+    for (let i = 0; i < items.length; i++) {
+      if (items[i] === item) {
+        items.splice(i, 1);
+        return true;
+      }
+      
+      if (items[i].children && items[i].children.length > 0) {
+        if (removeItem(items[i].children, item)) {
+          return true;
         }
       }
     }
-  } else {
-    items = items.filter(i => i !== item);
-  }
+    return false;
+  };
   
-  updateItemDisplay();
-}
-
-function searchItems(searchText) {
-  if (!searchText) searchText = '';
-  
-  const itemElements = document.getElementById("itemList").children;
-  
-  for (let i = 0; i < itemElements.length; i++) {
-    const element = itemElements[i];
-    const itemId = element.dataset.itemId;
-    const itemName = element.dataset.itemName;
-    
-    if (itemId.includes(searchText) || itemName.includes(searchText)) {
-      element.classList.remove("hidden");
-    } else {
-      element.classList.add("hidden");
-    }
-  }
+  removeItem(inventory.items, targetItem);
+  updateInventoryTree();
 }
 
 function downloadJson() {
-  const baseItem = {
-    itemID: "item_backpack_large_base",
-    children: items.map(item => ({
-      itemID: item.itemID,
-      colorHue: item.colorHue,
-      colorSaturation: item.colorSaturation,
-      scaleModifier: item.scaleModifier
-    }))
+  const processItemsForOutput = (items) => {
+    return items.map(item => {
+      const processedItem = { ...item };
+      
+      const count = processedItem.count || 1;
+      delete processedItem.count;
+      
+      if (processedItem.children && processedItem.children.length > 0) {
+        processedItem.children = processItemsForOutput(processedItem.children);
+      }
+      
+      if (count === 1) {
+        return processedItem;
+      } 
+      else {
+        return Array(count).fill().map(() => ({ ...processedItem }));
+      }
+    }).flat();
   };
-
+  
+  const processedItems = processItemsForOutput(inventory.items);
+  
+  const outputInventory = {
+    version: 1,
+    items: processedItems
+  };
+  
   const jsonOutput = {
     objects: [
       {
@@ -286,14 +468,11 @@ function downloadJson() {
         key: "stash",
         permission_read: 1,
         permission_write: 1,
-        value: JSON.stringify({
-          version: 1,
-          items: [baseItem]
-        })
+        value: JSON.stringify(outputInventory)
       }
     ]
   };
-
+  
   const blob = new Blob([JSON.stringify(jsonOutput, null, 2)], { type: "application/json" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
