@@ -27,7 +27,25 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById("containerSelect").addEventListener("change", (e) => {
     selectedContainerId = e.target.value;
   });
+  
+  // Setup toggle visibility when random checkboxes are clicked
+  setupRandomOptionVisibility("randomHue", "randomHueToggleWrap");
+  setupRandomOptionVisibility("randomSaturation", "randomSaturationToggleWrap");
+  setupRandomOptionVisibility("randomSize", "randomSizeToggleWrap");
 });
+
+function setupRandomOptionVisibility(checkboxId, toggleWrapperId) {
+  const checkbox = document.getElementById(checkboxId);
+  const toggleWrap = document.getElementById(toggleWrapperId);
+  
+  // Initial state
+  toggleWrap.style.display = checkbox.checked ? "block" : "none";
+  
+  // Update visibility on change
+  checkbox.addEventListener("change", function() {
+    toggleWrap.style.display = this.checked ? "block" : "none";
+  });
+}
 
 function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -134,27 +152,45 @@ function addItemToInventory() {
   const randomSaturation = document.getElementById("randomSaturation").checked;
   const randomSize = document.getElementById("randomSize").checked;
   
+  const sameRandomHue = document.getElementById("sameRandomHue").checked;
+  const sameRandomSaturation = document.getElementById("sameRandomSaturation").checked;
+  const sameRandomSize = document.getElementById("sameRandomSize").checked;
+  
   const hueVal = parseInt(document.getElementById("hue").value) || 0;
   const satVal = parseInt(document.getElementById("saturation").value) || 0;
   const sizeVal = parseInt(document.getElementById("size").value) || 0;
   
-  const newItem = {
-    itemID,
-    colorHue: randomHue ? getRandomInt(0, 255) : hueVal,
-    colorSaturation: randomSaturation ? getRandomInt(0, 100) : satVal,
-    scaleModifier: randomSize ? getRandomInt(-100, 100) : sizeVal,
-    count: count
-  };
+  // Pre-generate random values if using "same random" mode
+  const sharedRandomHue = randomHue ? getRandomInt(0, 255) : hueVal;
+  const sharedRandomSaturation = randomSaturation ? getRandomInt(0, 100) : satVal;
+  const sharedRandomSize = randomSize ? getRandomInt(-100, 100) : sizeVal;
   
-  if (containerID === 'root') {
-    const existingItem = findExistingItem(inventory.items, newItem);
-    if (existingItem) {
-      existingItem.count = (existingItem.count || 1) + count;
+  for (let i = 0; i < count; i++) {
+    // Generate item attributes based on settings
+    const newItem = {
+      itemID,
+      colorHue: randomHue ? 
+        (sameRandomHue ? sharedRandomHue : getRandomInt(0, 255)) : 
+        hueVal,
+      colorSaturation: randomSaturation ? 
+        (sameRandomSaturation ? sharedRandomSaturation : getRandomInt(0, 100)) : 
+        satVal,
+      scaleModifier: randomSize ? 
+        (sameRandomSize ? sharedRandomSize : getRandomInt(-100, 100)) : 
+        sizeVal,
+      count: 1
+    };
+    
+    if (containerID === 'root') {
+      const existingItem = findExistingItem(inventory.items, newItem);
+      if (existingItem) {
+        existingItem.count = (existingItem.count || 1) + 1;
+      } else {
+        inventory.items.push(newItem);
+      }
     } else {
-      inventory.items.push(newItem);
+      addToContainer(inventory.items, containerID, newItem);
     }
-  } else {
-    addToContainer(inventory.items, containerID, newItem);
   }
   
   updateInventoryTree();
@@ -178,7 +214,7 @@ function addToContainer(items, containerID, newItem) {
       
       const existingItem = findExistingItem(items[i].children, newItem);
       if (existingItem) {
-        existingItem.count = (existingItem.count || 1) + newItem.count;
+        existingItem.count = (existingItem.count || 1) + 1;
       } else {
         items[i].children.push(newItem);
       }
