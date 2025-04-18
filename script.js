@@ -551,4 +551,3 @@ function downloadJson() {
   link.download = "custom_inventory.json";
   link.click();
 }
-
