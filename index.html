@@ -36,10 +36,19 @@
     </div>
 
     <div class="form-field">
-      <label>Hue:</label>
+      <label>
+        <input type="checkbox" id="galaxyMode" />
+        Enable Galaxy Mode
+      </label>
+    </div>
+    
+
+    <div class="form-field">
+      <label>Hue (0-210):</label>
       <div class="input-row">
-        <div class="input-container">
-          <input type="number" id="hue" value="0" />
+        <div class="input-container slider-container">
+          <input type="range" id="hue" min="0" max="210" value="0" class="slider-input">
+          <div class="slider-value-display"><span id="hueValue">0</span></div>
         </div>
         <div class="random-container">
           <input type="checkbox" id="randomHue" />
@@ -53,12 +62,13 @@
         </div>
       </div>
     </div>
-
+    
     <div class="form-field">
-      <label>Saturation:</label>
+      <label>Saturation (0-120):</label>
       <div class="input-row">
-        <div class="input-container">
-          <input type="number" id="saturation" value="0" />
+        <div class="input-container slider-container">
+          <input type="range" id="saturation" min="0" max="120" value="0" class="slider-input">
+          <div class="slider-value-display"><span id="saturationValue">0</span></div>
         </div>
         <div class="random-container">
           <input type="checkbox" id="randomSaturation" />
@@ -72,12 +82,13 @@
         </div>
       </div>
     </div>
-
+    
     <div class="form-field">
-      <label>Size (Scale Modifier):</label>
+      <label>Size (Scale Modifier) (-128 to 127):</label>
       <div class="input-row">
-        <div class="input-container">
-          <input type="number" id="size" value="0" />
+        <div class="input-container slider-container">
+          <input type="range" id="size" min="-128" max="127" value="0" class="slider-input">
+          <div class="slider-value-display"><span id="sizeValue">0</span></div>
         </div>
         <div class="random-container">
           <input type="checkbox" id="randomSize" />
