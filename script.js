@@ -3,6 +3,7 @@ let inventory = {
   items: []
 };
 let advancedMode = false;
+let stackingMode = false;
 let selectedContainerId = 'root';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -103,6 +104,16 @@ document.addEventListener('DOMContentLoaded', () => {
   setupRandomOptionVisibility("randomSize", "randomSizeToggleWrap");
 
   updateItemSelect();
+
+  const stackModeBtn = document.getElementById("stackMode");
+
+  stackModeBtn.addEventListener("click", () => {
+    stackingMode = !stackingMode;
+    stackModeBtn.textContent = `Stacking: ${stackingMode ? "On" : "Off"}`;
+    stackModeBtn.classList.toggle("active", stackingMode);
+
+    updateInventoryTree();
+  });
 });
 
 function setupRandomOptionVisibility(checkboxId, toggleWrapperId) {
@@ -235,7 +246,7 @@ function filterInventoryTree(searchText) {
 function addItemToInventory() {
   const itemID = document.getElementById("itemSelect").value;
   const count = parseInt(document.getElementById("count").value, 10) || 1;
-  const containerID = selectedContainerId;
+  const containerSelection = document.getElementById("containerSelect").value;
 
   const galaxyMode = document.getElementById("galaxyMode").checked;
 
@@ -290,7 +301,7 @@ function addItemToInventory() {
       count: 1
     };
 
-    if (containerID === 'root') {
+    if (containerSelection === 'root') {
       const existingItem = findExistingItem(inventory.items, newItem);
       if (existingItem) {
         existingItem.count = (existingItem.count || 1) + 1;
@@ -298,7 +309,21 @@ function addItemToInventory() {
         inventory.items.push(newItem);
       }
     } else {
-      addToContainer(inventory.items, containerID, newItem);
+      try {
+        const containerPath = JSON.parse(containerSelection);
+        
+        if (containerPath.length === 0) {
+          inventory.items.push(newItem);
+        } else {
+          const immContainerId = containerPath[0];
+          const remainingPath = containerPath.slice(1);
+          
+          addToContainer(inventory.items, immContainerId, newItem, remainingPath);
+        }
+      } catch (e) {
+        console.error("Error parsing container path:", e);
+        inventory.items.push(newItem);
+      }
     }
   }
 
@@ -306,7 +331,10 @@ function addItemToInventory() {
 }
 
 function findExistingItem(items, newItem) {
-  return items.find(item => 
+  if (stackingMode) {
+    return items.find(item => item.itemID === newItem.itemID);
+  }
+  return items.find(item =>
     item.itemID === newItem.itemID &&
     item.colorHue === newItem.colorHue &&
     item.colorSaturation === newItem.colorSaturation &&
@@ -314,30 +342,49 @@ function findExistingItem(items, newItem) {
   );
 }
 
-function addToContainer(items, containerID, newItem) {
+function addToContainer(items, containerID, newItem, containerPath = []) {
   for (let i = 0; i < items.length; i++) {
-    if (items[i].itemID === containerID) {
-      if (!items[i].children) {
-        items[i].children = [];
-      }
-      
-      const existingItem = findExistingItem(items[i].children, newItem);
-      if (existingItem) {
-        existingItem.count = (existingItem.count || 1) + 1;
-      } else {
-        items[i].children.push(newItem);
-      }
-      return true;
-    }
+    const item = items[i];
     
-    if (items[i].children && items[i].children.length > 0) {
-      if (addToContainer(items[i].children, containerID, newItem)) {
+
+    if (item.itemID === containerID) {
+      if (containerPath.length === 0) {
+        if (!item.children) {
+          item.children = [];
+        }
+
+        const existingItem = findExistingItem(item.children, newItem);
+        if (existingItem) {
+          existingItem.count = (existingItem.count || 1) + 1;
+        } else {
+          item.children.push(newItem);
+        }
+        return true;
+      } else {
+        const nextPathItem = containerPath[0];
+        const remainingPath = containerPath.slice(1);
+        
+        if (item.children) {
+          for (let j = 0; j < item.children.length; j++) {
+            if (item.children[j].itemID === nextPathItem) {
+              return addToContainer([item.children[j]], nextPathItem, newItem, remainingPath);
+            }
+          }
+        }
+      }
+    }
+
+    if (item.children && item.children.length > 0) {
+      const added = addToContainer(item.children, containerID, newItem, containerPath);
+      if (added) {
         return true;
       }
     }
   }
+
   return false;
 }
+
 
 function isContainer(itemData, itemID) {
   if (!itemData) return false;
@@ -365,32 +412,38 @@ function updateContainerSelect() {
   const containerSelect = document.getElementById("containerSelect");
   containerSelect.innerHTML = '<option value="root">Root (No Container)</option>';
   
-  const addContainers = (items, path = "") => {
+  const addContainers = (items, path = [], displayPath = "") => {
     items.forEach(item => {
       const itemData = allItems.find(i => i.id === item.itemID);
       
       if (isContainer(itemData, item.itemID)) {
         const name = itemData ? itemData.name : item.itemID;
-        const pathDisplay = path ? `${path} > ${name}` : name;
+        const pathDisplay = displayPath ? `${displayPath} > ${name}` : name;
+        const containerPathVal = JSON.stringify([...path, item.itemID]);
         
         const option = document.createElement("option");
-        option.value = item.itemID;
+        option.value = containerPathVal;
         option.textContent = pathDisplay;
+        option.dataset.itemId = item.itemID;
+        option.dataset.path = containerPathVal;
         containerSelect.appendChild(option);
-      }
-      
-      if (item.children && item.children.length > 0) {
-        const itemName = itemData ? itemData.name : item.itemID;
-        const newPath = path ? `${path} > ${itemName}` : itemName;
-        addContainers(item.children, newPath);
+        
+        if (item.children && item.children.length > 0) {
+          const newPath = [...path, item.itemID];
+          const newDisplayPath = pathDisplay;
+          addContainers(item.children, newPath, newDisplayPath);
+        }
       }
     });
   };
   
   addContainers(inventory.items);
   
-  if (selectedContainerId) {
-    const exists = Array.from(containerSelect.options).some(option => option.value === selectedContainerId);
+  if (selectedContainerId && selectedContainerId !== 'root') {
+    const exists = Array.from(containerSelect.options).some(option => {
+      return option.dataset.path === selectedContainerId;
+    });
+    
     if (exists) {
       containerSelect.value = selectedContainerId;
     } else {
@@ -595,7 +648,7 @@ function downloadJson() {
       if (count === 1) {
         return processedItem;
       } else {
-        return Array(count).fill().map(() => ({ ...processedItem }));
+        return Array(count).fill().map(() => JSON.parse(JSON.stringify(processedItem)));
       }
     }).flat();
   };
