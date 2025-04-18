@@ -606,7 +606,7 @@ slider-container {
   margin: 0 auto;
 }
 
-.slider-value-display input[type="number"] {
+slider-value-display input[type="number"] {
   width: 60px;
   padding: 4px;
   border: 1px solid var(--border-color);
@@ -658,4 +658,26 @@ slider-container {
 }
 #filterModeContainer {
   display: none !important;
+}
+
+.json-size-indicator {
+  margin-bottom: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.json-size-indicator.warning {
+  color: red;
+  font-weight: bold;
+}
+
+.color-display {
+  width: 100%;
+  height: 40px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: hsl(0, 0%, 50%);
+  transition: background-color 0.3s ease;
 }
