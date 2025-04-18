@@ -48,7 +48,9 @@
       <div class="input-row">
         <div class="input-container slider-container">
           <input type="range" id="hue" min="0" max="210" value="0" class="slider-input">
-          <div class="slider-value-display"><span id="hueValue">0</span></div>
+          <div class="slider-value-display">
+            <input type="number" id="hueValue" value="0" min="0" max="210">
+          </div>
         </div>
         <div class="random-container">
           <input type="checkbox" id="randomHue" />
@@ -68,7 +70,9 @@
       <div class="input-row">
         <div class="input-container slider-container">
           <input type="range" id="saturation" min="0" max="120" value="0" class="slider-input">
-          <div class="slider-value-display"><span id="saturationValue">0</span></div>
+          <div class="slider-value-display">
+            <input type="number" id="saturationValue" value="0" min="0" max="120">
+          </div>
         </div>
         <div class="random-container">
           <input type="checkbox" id="randomSaturation" />
@@ -88,7 +92,9 @@
       <div class="input-row">
         <div class="input-container slider-container">
           <input type="range" id="size" min="-128" max="127" value="0" class="slider-input">
-          <div class="slider-value-display"><span id="sizeValue">0</span></div>
+          <div class="slider-value-display">
+            <input type="number" id="sizeValue" value="0" min="-128" max="127">
+          </div>
         </div>
         <div class="random-container">
           <input type="checkbox" id="randomSize" />
