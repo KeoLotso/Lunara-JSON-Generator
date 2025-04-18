@@ -10,14 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(res => res.json())
     .then(data => {
       allItems = data;
-      const select = document.getElementById("itemSelect");
-      data.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item.id;
-        option.textContent = item.name;
-        select.appendChild(option);
-      });
-    });
+      updateItemSelect();
+    })
+    .catch(err => console.error("Failed to load items:", err));
   
   document.getElementById("addItem").addEventListener("click", addItemToInventory);
   document.getElementById("downloadJson").addEventListener("click", downloadJson);
@@ -28,33 +23,86 @@ document.addEventListener('DOMContentLoaded', () => {
     selectedContainerId = e.target.value;
   });
   document.getElementById("galaxyMode").addEventListener("change", handleGalaxyToggle);
+  document.getElementById("filterMode").addEventListener("change", updateItemSelect);
 
-function handleGalaxyToggle() {
-  const galaxyEnabled = document.getElementById("galaxyMode").checked;
-  const hueSlider = document.getElementById("hue");
-  const hueDisplay = document.getElementById("hueValue");
-  const saturationSlider = document.getElementById("saturation");
-  const saturationDisplay = document.getElementById("saturationValue");
-  
-  hueSlider.disabled = galaxyEnabled;
-  saturationSlider.disabled = galaxyEnabled;
-  document.getElementById("randomHue").disabled = galaxyEnabled;
-  document.getElementById("randomSaturation").disabled = galaxyEnabled;
-  document.getElementById("sameRandomHue").disabled = galaxyEnabled;
-  document.getElementById("sameRandomSaturation").disabled = galaxyEnabled;
+  document.getElementById("importJson").addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
 
-  if (galaxyEnabled) {
-    hueSlider.value = 161;
-    hueDisplay.value = "161";
-    saturationSlider.value = 120;
-    saturationDisplay.value = "120";
+    input.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const jsonData = JSON.parse(e.target.result);
+            if (jsonData && jsonData.objects && jsonData.objects[0] && jsonData.objects[0].value) {
+              const inventoryData = JSON.parse(jsonData.objects[0].value);
+              if (inventoryData && inventoryData.items) {
+                inventory.items = inventoryData.items;
+                updateInventoryTree();
+                alert("JSON imported successfully!");
+              } else {
+                alert("Invalid JSON structure: Missing 'items' key.");
+              }
+            } else {
+              alert("Invalid JSON structure.");
+            }
+          } catch (error) {
+            alert("Error parsing JSON file.");
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    input.click();
+  });
+
+  const itemSelect = document.getElementById("itemSelect");
+  const filterModeContainer = document.getElementById("filterModeContainer");
+
+  const toggleFilterModeVisibility = () => {
+    if (itemSelect.value === "random") {
+      filterModeContainer.style.display = "block";
+    } else {
+      filterModeContainer.style.display = "none";
+    }
+  };
+
+  toggleFilterModeVisibility();
+
+  itemSelect.addEventListener("change", toggleFilterModeVisibility);
+
+  function handleGalaxyToggle() {
+    const galaxyEnabled = document.getElementById("galaxyMode").checked;
+    const hueSlider = document.getElementById("hue");
+    const hueDisplay = document.getElementById("hueValue");
+    const saturationSlider = document.getElementById("saturation");
+    const saturationDisplay = document.getElementById("saturationValue");
+    
+    hueSlider.disabled = galaxyEnabled;
+    saturationSlider.disabled = galaxyEnabled;
+    document.getElementById("randomHue").disabled = galaxyEnabled;
+    document.getElementById("randomSaturation").disabled = galaxyEnabled;
+    document.getElementById("sameRandomHue").disabled = galaxyEnabled;
+    document.getElementById("sameRandomSaturation").disabled = galaxyEnabled;
+
+    if (galaxyEnabled) {
+      hueSlider.value = 161;
+      hueDisplay.value = "161";
+      saturationSlider.value = 120;
+      saturationDisplay.value = "120";
+    }
   }
-}
 
   
   setupRandomOptionVisibility("randomHue", "randomHueToggleWrap");
   setupRandomOptionVisibility("randomSaturation", "randomSaturationToggleWrap");
   setupRandomOptionVisibility("randomSize", "randomSizeToggleWrap");
+
+  updateItemSelect();
 });
 
 function setupRandomOptionVisibility(checkboxId, toggleWrapperId) {
@@ -208,8 +256,28 @@ function addItemToInventory() {
   const sharedRandomSize = randomSize ? getRandomInt(-100, 100) : sizeVal;
 
   for (let i = 0; i < count; i++) {
+    let selectedItemID = itemID;
+
+    if (itemID === "random") {
+      const randomItem = allItems[Math.floor(Math.random() * allItems.length)];
+      selectedItemID = randomItem.id;
+    } else if (itemID === "randomContainer") {
+      const containers = allItems.filter(item => isContainer(item, item.id));
+      const randomContainer = containers[Math.floor(Math.random() * containers.length)];
+      selectedItemID = randomContainer ? randomContainer.id : null;
+    } else if (itemID === "randomItem") {
+      const items = allItems.filter(item => !isContainer(item, item.id));
+      const randomItem = items[Math.floor(Math.random() * items.length)];
+      selectedItemID = randomItem ? randomItem.id : null;
+    }
+
+    if (!selectedItemID) {
+      alert("No valid item found for the selected option.");
+      continue;
+    }
+
     const newItem = {
-      itemID,
+      itemID: selectedItemID,
       colorHue: galaxyMode
         ? 161
         : (randomHue ? (sameRandomHue ? sharedRandomHue : getRandomInt(0, 255)) : hueVal),
@@ -236,7 +304,6 @@ function addItemToInventory() {
 
   updateInventoryTree();
 }
-
 
 function findExistingItem(items, newItem) {
   return items.find(item => 
@@ -559,3 +626,37 @@ function downloadJson() {
   link.click();
 }
 
+function updateItemSelect() {
+  const itemSelect = document.getElementById("itemSelect");
+
+  itemSelect.innerHTML = '';
+
+  const randomOption = document.createElement("option");
+  randomOption.value = "random";
+  randomOption.textContent = "Random (All)";
+  itemSelect.appendChild(randomOption);
+
+  const randomContainerOption = document.createElement("option");
+  randomContainerOption.value = "randomContainer";
+  randomContainerOption.textContent = "Container (Random Container)";
+  itemSelect.appendChild(randomContainerOption);
+
+  const randomItemOption = document.createElement("option");
+  randomItemOption.value = "randomItem";
+  randomItemOption.textContent = "Item (Random Item)";
+  itemSelect.appendChild(randomItemOption);
+
+  if (!allItems || allItems.length === 0) {
+    console.error("No items found in the JSON file.");
+    return;
+  }
+
+  allItems.forEach(item => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = item.name;
+    itemSelect.appendChild(option);
+  });
+}
+
+document.getElementById("filterMode").addEventListener("change", updateItemSelect);
