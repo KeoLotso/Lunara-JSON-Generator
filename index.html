@@ -99,6 +99,7 @@
           </div>
         </div>
       </div>
+      <div id="colorDisplay" class="color-display"></div>
     </div>
     
     <div class="form-field">
@@ -118,6 +119,18 @@
               <input type="checkbox" id="sameRandomSize" checked>
               <span class="toggle-label">Same</span>
             </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="valueSliderContainer" class="form-field" style="display: none;">
+      <label>Value (20-8020):</label>
+      <div class="input-row">
+        <div class="input-container slider-container">
+          <input type="range" id="valueSlider" min="20" max="8020" value="20" class="slider-input">
+          <div class="slider-value-display">
+            <input type="number" id="valueInput" value="20" min="20" max="8020">
           </div>
         </div>
       </div>
@@ -143,6 +156,7 @@
       <h2>Inventory Items</h2>
       <div class="download-section">
         <input type="text" id="fileTitle" placeholder="Enter file title" />
+        <div id="jsonSizeIndicator" class="json-size-indicator">JSON Size: 0 KB</div>
         <button id="importJson">Import JSON</button>
         <button id="downloadJson">Download JSON</button>
       </div>
