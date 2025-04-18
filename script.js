@@ -27,8 +27,31 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById("containerSelect").addEventListener("change", (e) => {
     selectedContainerId = e.target.value;
   });
+  document.getElementById("galaxyMode").addEventListener("change", handleGalaxyToggle);
+
+function handleGalaxyToggle() {
+  const galaxyEnabled = document.getElementById("galaxyMode").checked;
+  const hueSlider = document.getElementById("hue");
+  const hueDisplay = document.getElementById("hueValue");
+  const saturationSlider = document.getElementById("saturation");
+  const saturationDisplay = document.getElementById("saturationValue");
   
-  // Setup toggle visibility when random checkboxes are clicked
+  hueSlider.disabled = galaxyEnabled;
+  saturationSlider.disabled = galaxyEnabled;
+  document.getElementById("randomHue").disabled = galaxyEnabled;
+  document.getElementById("randomSaturation").disabled = galaxyEnabled;
+  document.getElementById("sameRandomHue").disabled = galaxyEnabled;
+  document.getElementById("sameRandomSaturation").disabled = galaxyEnabled;
+
+  if (galaxyEnabled) {
+    hueSlider.value = 161;
+    hueDisplay.textContent = "161";
+    saturationSlider.value = 120;
+    saturationDisplay.textContent = "120";
+  }
+}
+
+  
   setupRandomOptionVisibility("randomHue", "randomHueToggleWrap");
   setupRandomOptionVisibility("randomSaturation", "randomSaturationToggleWrap");
   setupRandomOptionVisibility("randomSize", "randomSizeToggleWrap");
@@ -38,10 +61,8 @@ function setupRandomOptionVisibility(checkboxId, toggleWrapperId) {
   const checkbox = document.getElementById(checkboxId);
   const toggleWrap = document.getElementById(toggleWrapperId);
   
-  // Initial state
   toggleWrap.style.display = checkbox.checked ? "block" : "none";
   
-  // Update visibility on change
   checkbox.addEventListener("change", function() {
     toggleWrap.style.display = this.checked ? "block" : "none";
   });
@@ -71,6 +92,21 @@ function toggleAdvancedMode() {
     }
   });
 }
+
+const setupSlider = (sliderId, valueId) => {
+  const slider = document.getElementById(sliderId);
+  const valueDisplay = document.getElementById(valueId);
+  
+  valueDisplay.textContent = slider.value;
+  
+  slider.addEventListener('input', function() {
+    valueDisplay.textContent = this.value;
+  });
+};
+
+setupSlider('hue', 'hueValue');
+setupSlider('saturation', 'saturationValue');
+setupSlider('size', 'sizeValue');
 
 function handleSearch() {
   const searchText = document.getElementById("searchInput").value.toLowerCase();
@@ -145,42 +181,41 @@ function filterInventoryTree(searchText) {
 function addItemToInventory() {
   const itemID = document.getElementById("itemSelect").value;
   const count = parseInt(document.getElementById("count").value, 10) || 1;
-  
   const containerID = selectedContainerId;
-  
+
+  const galaxyMode = document.getElementById("galaxyMode").checked;
+
   const randomHue = document.getElementById("randomHue").checked;
   const randomSaturation = document.getElementById("randomSaturation").checked;
   const randomSize = document.getElementById("randomSize").checked;
-  
+
   const sameRandomHue = document.getElementById("sameRandomHue").checked;
   const sameRandomSaturation = document.getElementById("sameRandomSaturation").checked;
   const sameRandomSize = document.getElementById("sameRandomSize").checked;
-  
-  const hueVal = parseInt(document.getElementById("hue").value) || 0;
-  const satVal = parseInt(document.getElementById("saturation").value) || 0;
+
+  const hueVal = galaxyMode ? 161 : parseInt(document.getElementById("hue").value) || 0;
+  const satVal = galaxyMode ? 120 : parseInt(document.getElementById("saturation").value) || 0;
   const sizeVal = parseInt(document.getElementById("size").value) || 0;
-  
-  // Pre-generate random values if using "same random" mode
-  const sharedRandomHue = randomHue ? getRandomInt(0, 255) : hueVal;
-  const sharedRandomSaturation = randomSaturation ? getRandomInt(0, 100) : satVal;
+
+  const sharedRandomHue = (galaxyMode || !randomHue) ? hueVal : getRandomInt(0, 255);
+  const sharedRandomSaturation = (galaxyMode || !randomSaturation) ? satVal : getRandomInt(0, 100);
   const sharedRandomSize = randomSize ? getRandomInt(-100, 100) : sizeVal;
-  
+
   for (let i = 0; i < count; i++) {
-    // Generate item attributes based on settings
     const newItem = {
       itemID,
-      colorHue: randomHue ? 
-        (sameRandomHue ? sharedRandomHue : getRandomInt(0, 255)) : 
-        hueVal,
-      colorSaturation: randomSaturation ? 
-        (sameRandomSaturation ? sharedRandomSaturation : getRandomInt(0, 100)) : 
-        satVal,
-      scaleModifier: randomSize ? 
-        (sameRandomSize ? sharedRandomSize : getRandomInt(-100, 100)) : 
-        sizeVal,
+      colorHue: galaxyMode
+        ? 161
+        : (randomHue ? (sameRandomHue ? sharedRandomHue : getRandomInt(0, 255)) : hueVal),
+      colorSaturation: galaxyMode
+        ? 120
+        : (randomSaturation ? (sameRandomSaturation ? sharedRandomSaturation : getRandomInt(0, 100)) : satVal),
+      scaleModifier: randomSize
+        ? (sameRandomSize ? sharedRandomSize : getRandomInt(-100, 100))
+        : sizeVal,
       count: 1
     };
-    
+
     if (containerID === 'root') {
       const existingItem = findExistingItem(inventory.items, newItem);
       if (existingItem) {
@@ -192,9 +227,10 @@ function addItemToInventory() {
       addToContainer(inventory.items, containerID, newItem);
     }
   }
-  
+
   updateInventoryTree();
 }
+
 
 function findExistingItem(items, newItem) {
   return items.find(item => 
@@ -515,3 +551,4 @@ function downloadJson() {
   link.download = "custom_inventory.json";
   link.click();
 }
+
