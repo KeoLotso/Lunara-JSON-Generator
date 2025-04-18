@@ -76,6 +76,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   itemSelect.addEventListener("change", toggleFilterModeVisibility);
 
+  document.getElementById("itemSelect").addEventListener("change", function () {
+    const selectedItem = this.value;
+    const valueSliderContainer = document.getElementById("valueSliderContainer");
+
+    if (selectedItem === "item_shredder") {
+      valueSliderContainer.style.display = "block";
+    } else {
+      valueSliderContainer.style.display = "none";
+    }
+  });
+
+  const valueSlider = document.getElementById("valueSlider");
+  const valueInput = document.getElementById("valueInput");
+
+  valueSlider.addEventListener("input", function () {
+    valueInput.value = this.value;
+  });
+
+  valueInput.addEventListener("input", function () {
+    const value = Math.min(Math.max(this.value, valueSlider.min), valueSlider.max);
+    valueSlider.value = value;
+    this.value = value;
+  });
+
   function handleGalaxyToggle() {
     const galaxyEnabled = document.getElementById("galaxyMode").checked;
     const hueSlider = document.getElementById("hue");
@@ -173,6 +197,24 @@ setupSlider('hue', 'hueValue');
 setupSlider('saturation', 'saturationValue');
 setupSlider('size', 'sizeValue');
 
+function updateColorDisplay() {
+  const hue = parseInt(document.getElementById("hue").value, 10) || 0
+  const saturation = parseInt(document.getElementById("saturation").value, 10) || 0
+  const normalizedSaturation = (saturation / 120) * 100
+  const adjustedHue = (hue / 210) * 300 // Map 0–210 to 0–240 for blue-purple tones when galaxy, this is where im orienting from but this wont really ever work cause its not texture based so idk lol
+  const lightness = 50
+  const colorDisplay = document.getElementById("colorDisplay")
+  colorDisplay.style.backgroundColor = `hsl(${adjustedHue}, ${normalizedSaturation}%, ${lightness}%)`
+}
+
+document.getElementById("hue").addEventListener("input", updateColorDisplay)
+document.getElementById("saturation").addEventListener("input", updateColorDisplay)
+document.getElementById("galaxyMode").addEventListener("change", () => {
+  updateColorDisplay()
+})
+
+updateColorDisplay()
+
 function handleSearch() {
   const searchText = document.getElementById("searchInput").value.toLowerCase();
   const suggestionsContainer = document.getElementById("searchSuggestions");
@@ -201,6 +243,8 @@ function handleSearch() {
           document.getElementById('itemSelect').value = item.id;
           suggestionsContainer.classList.remove('active');
           document.getElementById('searchInput').value = '';
+          
+          document.getElementById('itemSelect').dispatchEvent(new Event('change'));
         });
         
         suggestionsContainer.appendChild(suggestionItem);
@@ -328,6 +372,7 @@ function addItemToInventory() {
   }
 
   updateInventoryTree();
+  updateJsonSizeIndicator();
 }
 
 function findExistingItem(items, newItem) {
@@ -406,6 +451,7 @@ function updateInventoryTree() {
   inventory.items.forEach(item => {
     renderInventoryItem(item, inventoryTree);
   });
+  updateJsonSizeIndicator();
 }
 
 function updateContainerSelect() {
@@ -641,6 +687,11 @@ function downloadJson() {
       const count = processedItem.count || 1;
       delete processedItem.count;
 
+      if (processedItem.itemID === "item_shredder") {
+        const value = parseInt(document.getElementById("valueSlider").value, 10) || 20;
+        processedItem.state = value - 20;
+      }
+
       if (processedItem.children && processedItem.children.length > 0) {
         processedItem.children = processItemsForOutput(processedItem.children);
       }
@@ -713,3 +764,57 @@ function updateItemSelect() {
 }
 
 document.getElementById("filterMode").addEventListener("change", updateItemSelect);
+
+function updateJsonSizeIndicator() {
+  const jsonSizeIndicator = document.getElementById("jsonSizeIndicator");
+
+  const processItemsForOutput = (items) => {
+    return items.map(item => {
+      const processedItem = { ...item };
+      const count = processedItem.count || 1;
+      delete processedItem.count;
+
+      if (processedItem.children && processedItem.children.length > 0) {
+        processedItem.children = processItemsForOutput(processedItem.children);
+      }
+
+      if (count === 1) {
+        return processedItem;
+      } else {
+        return Array(count).fill().map(() => JSON.parse(JSON.stringify(processedItem)));
+      }
+    }).flat();
+  };
+
+  const processedItems = processItemsForOutput(inventory.items);
+
+  const outputInventory = {
+    version: 1,
+    items: processedItems
+  };
+
+  const jsonOutput = {
+    objects: [
+      {
+        collection: "user_inventory",
+        key: "stash",
+        permission_read: 1,
+        permission_write: 1,
+        value: JSON.stringify(outputInventory)
+      }
+    ]
+  };
+
+  const jsonString = JSON.stringify(jsonOutput);
+  const jsonSizeKB = (new Blob([jsonString]).size / 1024).toFixed(2);
+
+  jsonSizeIndicator.textContent = `JSON Size: ${jsonSizeKB} KB`;
+  if (jsonSizeKB > 300) {
+    jsonSizeIndicator.classList.add("warning");
+    jsonSizeIndicator.textContent += " - Loading won't work, you are above 300 KB";
+  } else {
+    jsonSizeIndicator.classList.remove("warning");
+  }
+}
+
+updateJsonSizeIndicator();
