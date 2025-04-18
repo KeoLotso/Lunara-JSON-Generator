@@ -45,9 +45,9 @@ function handleGalaxyToggle() {
 
   if (galaxyEnabled) {
     hueSlider.value = 161;
-    hueDisplay.textContent = "161";
+    hueDisplay.value = "161";
     saturationSlider.value = 120;
-    saturationDisplay.textContent = "120";
+    saturationDisplay.value = "120";
   }
 }
 
@@ -95,12 +95,18 @@ function toggleAdvancedMode() {
 
 const setupSlider = (sliderId, valueId) => {
   const slider = document.getElementById(sliderId);
-  const valueDisplay = document.getElementById(valueId);
-  
-  valueDisplay.textContent = slider.value;
-  
-  slider.addEventListener('input', function() {
-    valueDisplay.textContent = this.value;
+  const valueInput = document.getElementById(valueId);
+
+  valueInput.value = slider.value;
+
+  slider.addEventListener('input', function () {
+    valueInput.value = this.value;
+  });
+
+  valueInput.addEventListener('input', function () {
+    const value = Math.min(Math.max(this.value, slider.min), slider.max);
+    slider.value = value;
+    this.value = value; 
   });
 };
 
