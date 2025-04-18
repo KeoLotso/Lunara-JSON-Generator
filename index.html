@@ -32,7 +32,20 @@
   <div class="form-section">
     <div class="form-field">
       <label for="itemSelect">Item:</label>
-      <select id="itemSelect"></select>
+      <select id="itemSelect">
+        <option value="random">Random (All)</option>
+        <option value="randomContainer">Container (Random Container)</option>
+        <option value="randomItem">Item (Random Item)</option>
+      </select>
+    </div>
+
+    <div id="filterModeContainer" class="form-field" style="display: none;">
+      <label for="filterMode">Filter Mode:</label>
+      <select id="filterMode">
+        <option value="all">All Items</option>
+        <option value="containers">Only Containers</option>
+        <option value="items">Only Items (No Containers)</option>
+      </select>
     </div>
 
     <div class="form-field">
@@ -129,6 +142,7 @@
       <h2>Inventory Items</h2>
       <div class="download-section">
         <input type="text" id="fileTitle" placeholder="Enter file title" />
+        <button id="importJson">Import JSON</button>
         <button id="downloadJson">Download JSON</button>
       </div>
     </div>
