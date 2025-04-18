@@ -656,3 +656,6 @@ slider-container {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
+#filterModeContainer {
+  display: none !important;
+}
