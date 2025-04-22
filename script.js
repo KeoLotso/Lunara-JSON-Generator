@@ -6,6 +6,16 @@ let advancedMode = false;
 let stackingMode = false;
 let selectedContainerId = 'root';
 
+const ammoConfig = {
+  "item_revolver_gold": 6,
+  "item_revolver": 6,
+  "item_rpg": 1,
+  "item_rpg_cny": 1,
+  "item_shotgun": 2,
+  "item_flaregun": 1,
+  "item_zipline_gun": 1,
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   fetch('files.json')
     .then(res => res.json())
@@ -18,7 +28,45 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById("addItem").addEventListener("click", addItemToInventory);
   document.getElementById("downloadJson").addEventListener("click", downloadJson);
   document.getElementById("advancedMode").addEventListener("click", toggleAdvancedMode);
-  document.getElementById("searchInput").addEventListener("input", handleSearch);
+  document.getElementById("searchInput").addEventListener("input", function () {
+    const searchText = this.value.trim().toLowerCase();
+    const searchSuggestions = document.getElementById("searchSuggestions");
+
+    if (searchText === "") {
+      searchSuggestions.innerHTML = "";
+      searchSuggestions.classList.remove("active");
+      updateInventoryTree();
+      return;
+    }
+
+    const filteredItems = allItems.filter(item =>
+      item.name.toLowerCase().includes(searchText) || item.id.toLowerCase().includes(searchText)
+    );
+
+    if (filteredItems.length > 0) {
+      searchSuggestions.innerHTML = filteredItems
+        .map(item => `<div class="suggestion-item" data-item-id="${item.id}">${item.name}</div>`)
+        .join("");
+      searchSuggestions.classList.add("active");
+    } else {
+      searchSuggestions.innerHTML = "<div class='suggestion-item'>No results found</div>";
+      searchSuggestions.classList.add("active");
+    }
+  });
+
+  document.getElementById("searchSuggestions").addEventListener("click", function (event) {
+    const target = event.target;
+    if (target.classList.contains("suggestion-item") && target.dataset.itemId) {
+      const selectedItemId = target.dataset.itemId;
+      const itemSelect = document.getElementById("itemSelect");
+
+      itemSelect.value = selectedItemId;
+      searchSuggestions.innerHTML = "";
+      searchSuggestions.classList.remove("active");
+
+      updateInventoryTree();
+    }
+  });
   
   document.getElementById("containerSelect").addEventListener("change", (e) => {
     selectedContainerId = e.target.value;
@@ -79,11 +127,24 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById("itemSelect").addEventListener("change", function () {
     const selectedItem = this.value;
     const valueSliderContainer = document.getElementById("valueSliderContainer");
+    const ammoSliderContainer = document.getElementById("ammoSliderContainer");
 
     if (selectedItem === "item_shredder") {
       valueSliderContainer.style.display = "block";
     } else {
       valueSliderContainer.style.display = "none";
+    }
+
+    if (ammoConfig[selectedItem]) {
+      ammoSliderContainer.style.display = "block";
+      const ammoSlider = document.getElementById("ammoSlider");
+      const ammoInput = document.getElementById("ammoInput");
+      ammoSlider.max = ammoConfig[selectedItem];
+      ammoInput.max = ammoConfig[selectedItem];
+      ammoSlider.value = ammoConfig[selectedItem];
+      ammoInput.value = ammoConfig[selectedItem];
+    } else {
+      ammoSliderContainer.style.display = "none";
     }
   });
 
@@ -316,6 +377,13 @@ function addItemToInventory() {
     if (itemID === "random") {
       const randomItem = allItems[Math.floor(Math.random() * allItems.length)];
       selectedItemID = randomItem.id;
+
+      if (ammoConfig[selectedItemID]) {
+        const ammoSlider = document.getElementById("ammoSlider");
+        const ammoInput = document.getElementById("ammoInput");
+        ammoSlider.value = ammoConfig[selectedItemID];
+        ammoInput.value = ammoConfig[selectedItemID];
+      }
     } else if (itemID === "randomContainer") {
       const containers = allItems.filter(item => isContainer(item, item.id));
       const randomContainer = containers[Math.floor(Math.random() * containers.length)];
@@ -324,6 +392,13 @@ function addItemToInventory() {
       const items = allItems.filter(item => !isContainer(item, item.id));
       const randomItem = items[Math.floor(Math.random() * items.length)];
       selectedItemID = randomItem ? randomItem.id : null;
+
+      if (ammoConfig[selectedItemID]) {
+        const ammoSlider = document.getElementById("ammoSlider");
+        const ammoInput = document.getElementById("ammoInput");
+        ammoSlider.value = ammoConfig[selectedItemID];
+        ammoInput.value = ammoConfig[selectedItemID];
+      }
     }
 
     if (!selectedItemID) {
@@ -345,6 +420,10 @@ function addItemToInventory() {
       count: 1
     };
 
+    if (ammoConfig[selectedItemID]) {
+      newItem.ammo = ammoConfig[selectedItemID];
+    }
+
     if (containerSelection === 'root') {
       const existingItem = findExistingItem(inventory.items, newItem);
       if (existingItem) {
@@ -355,13 +434,13 @@ function addItemToInventory() {
     } else {
       try {
         const containerPath = JSON.parse(containerSelection);
-        
+
         if (containerPath.length === 0) {
           inventory.items.push(newItem);
         } else {
           const immContainerId = containerPath[0];
           const remainingPath = containerPath.slice(1);
-          
+
           addToContainer(inventory.items, immContainerId, newItem, remainingPath);
         }
       } catch (e) {
@@ -444,13 +523,36 @@ function isContainer(itemData, itemID) {
 
 function updateInventoryTree() {
   const inventoryTree = document.getElementById("inventoryTree");
+
+  const expandedContainers = new Set();
+  inventoryTree.querySelectorAll('.child-items.expanded').forEach(container => {
+    const parentItem = container.parentElement;
+    if (parentItem && parentItem.dataset.itemId) {
+      expandedContainers.add(parentItem.dataset.itemId);
+    }
+  });
+
   inventoryTree.innerHTML = '';
-  
+
   updateContainerSelect();
-  
+
   inventory.items.forEach(item => {
     renderInventoryItem(item, inventoryTree);
   });
+
+  inventoryTree.querySelectorAll('li').forEach(item => {
+    if (expandedContainers.has(item.dataset.itemId)) {
+      const childContainer = item.querySelector('.child-items');
+      if (childContainer) {
+        childContainer.classList.add('expanded');
+        const toggle = item.querySelector('.tree-toggle');
+        if (toggle) {
+          toggle.textContent = "▼";
+        }
+      }
+    }
+  });
+
   updateJsonSizeIndicator();
 }
 
@@ -502,20 +604,20 @@ function updateContainerSelect() {
 function renderInventoryItem(item, parentElement, level = 0) {
   const itemData = allItems.find(i => i.id === item.itemID);
   const itemName = itemData ? itemData.name : item.itemID;
-  
+
   const li = document.createElement("li");
   li.dataset.itemId = item.itemID;
   li.dataset.name = itemName;
-  
+
   const isContainerItem = isContainer(itemData, item.itemID);
   const hasChildren = item.children && item.children.length > 0;
-  
+
   const treeItem = document.createElement("div");
   treeItem.className = `tree-item ${isContainerItem ? 'container' : ''}`;
-  
+
   const treeItemInfo = document.createElement("div");
   treeItemInfo.className = "tree-item-info";
-  
+
   if (isContainerItem || hasChildren) {
     const toggle = document.createElement("span");
     toggle.className = "tree-toggle";
@@ -532,40 +634,39 @@ function renderInventoryItem(item, parentElement, level = 0) {
     });
     treeItemInfo.appendChild(toggle);
   }
-  
+
   const itemContent = document.createElement("div");
   itemContent.className = "tree-item-content";
-  
+
   const countDisplay = item.count && item.count > 1 ? ` (x${item.count})` : '';
-  
+
   itemContent.innerHTML = `
     <span>${itemName}${countDisplay}</span>
     <span class="item-id ${advancedMode ? 'visible' : ''}">(${item.itemID})</span>
     ${hasChildren ? `<span class="item-count">${item.children.length} items</span>` : ''}
   `;
-  
-  if (item.colorHue !== undefined || item.colorSaturation !== undefined || item.scaleModifier !== undefined) {
+
+  const attributes = [];
+  if (item.colorHue !== undefined && item.colorHue !== 0) attributes.push(`Hue: ${item.colorHue}`);
+  if (item.colorSaturation !== undefined && item.colorSaturation !== 0) attributes.push(`Saturation: ${item.colorSaturation}`);
+  if (item.scaleModifier !== undefined && item.scaleModifier !== 0) attributes.push(`Size: ${item.scaleModifier}`);
+  if (item.ammo !== undefined && item.ammo !== 0) attributes.push(`Ammo: ${item.ammo}`);
+
+  if (attributes.length > 0) {
     const propsTable = document.createElement("table");
     propsTable.className = "properties-table";
     propsTable.innerHTML = `
-      <tr>
-        <td>Hue:</td>
-        <td>${item.colorHue !== undefined ? item.colorHue : 'default'}</td>
-        <td>Saturation:</td>
-        <td>${item.colorSaturation !== undefined ? item.colorSaturation : 'default'}</td>
-        <td>Size:</td>
-        <td>${item.scaleModifier !== undefined ? item.scaleModifier : 'default'}</td>
-      </tr>
+      <tr>${attributes.map(attr => `<td>${attr}</td>`).join('')}</tr>
     `;
     itemContent.appendChild(propsTable);
   }
-  
+
   treeItemInfo.appendChild(itemContent);
   treeItem.appendChild(treeItemInfo);
-  
+
   const actionDiv = document.createElement("div");
   actionDiv.className = "item-actions";
-  
+
   if (level > 0) {
     const moveUpBtn = document.createElement("button");
     moveUpBtn.textContent = "Move Up";
@@ -574,29 +675,29 @@ function renderInventoryItem(item, parentElement, level = 0) {
     });
     actionDiv.appendChild(moveUpBtn);
   }
-  
+
   const deleteBtn = document.createElement("button");
   deleteBtn.textContent = "Delete";
   deleteBtn.addEventListener("click", () => {
     deleteItem(item, level);
   });
   actionDiv.appendChild(deleteBtn);
-  
+
   treeItem.appendChild(actionDiv);
   li.appendChild(treeItem);
-  
+
   if (isContainerItem || hasChildren) {
     const childContainer = document.createElement("ul");
     childContainer.className = "child-items";
     li.appendChild(childContainer);
-    
+
     if (item.children && item.children.length > 0) {
       item.children.forEach(child => {
         renderInventoryItem(child, childContainer, level + 1);
       });
     }
   }
-  
+
   parentElement.appendChild(li);
 }
 
@@ -692,6 +793,11 @@ function downloadJson() {
         processedItem.state = value - 20;
       }
 
+      if (processedItem.colorHue === 0) delete processedItem.colorHue;
+      if (processedItem.colorSaturation === 0) delete processedItem.colorSaturation;
+      if (processedItem.scaleModifier === 0) delete processedItem.scaleModifier;
+      if (processedItem.ammo === 0) delete processedItem.ammo;
+
       if (processedItem.children && processedItem.children.length > 0) {
         processedItem.children = processItemsForOutput(processedItem.children);
       }
@@ -723,7 +829,8 @@ function downloadJson() {
     ]
   };
 
-  const blob = new Blob([JSON.stringify(jsonOutput, null, 2)], { type: "application/json" });
+  const jsonString = JSON.stringify(jsonOutput, null, 2).replace(/,\s*}/g, '}');
+  const blob = new Blob([jsonString], { type: "application/json" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = `${fileTitle}.json`;
@@ -809,7 +916,7 @@ function updateJsonSizeIndicator() {
   const jsonSizeKB = (new Blob([jsonString]).size / 1024).toFixed(2);
 
   jsonSizeIndicator.textContent = `JSON Size: ${jsonSizeKB} KB`;
-  if (jsonSizeKB > 300) {
+  if (jsonSizeKB > 250) {
     jsonSizeIndicator.classList.add("warning");
     jsonSizeIndicator.textContent += " - Loading won't work, you are above 300 KB";
   } else {
